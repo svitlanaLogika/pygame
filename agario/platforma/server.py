@@ -3,7 +3,7 @@ from threading import Thread
 import time
 
 sock = socket(AF_INET, SOCK_STREAM)
-sock.bind(('localhost', 8081))
+sock.bind(('0.0.0.0', 8081))  # Змінено на 0.0.0.0 для ngrok
 sock.listen(5)
 sock.setblocking(False)
 
@@ -19,6 +19,7 @@ def handle_data():
         player_data = {}
         to_remove = []
 
+        # Збираємо дані від всіх клієнтів
         for conn in list(players):
             try:
                 data = conn.recv(64).decode().strip()
@@ -44,6 +45,7 @@ def handle_data():
                 to_remove.append(conn)
                 continue
 
+        # Перевіряємо колізії між гравцями
         eliminated = []
         for conn1 in player_data:
             if conn1 in eliminated:
@@ -60,23 +62,29 @@ def handle_data():
                     players[conn1] = p1
                     eliminated.append(conn2)
 
+        # Відправляємо дані всім клієнтам
         for conn in list(players.keys()):
             if conn in eliminated:
                 try:
                     conn.send("LOSE".encode())
+                    print(f"Player {players[conn]['id']} eliminated")
                 except:
                     pass
                 to_remove.append(conn)
                 continue
 
             try:
-                # Виправлено: тільки надсилаємо дані інших гравців
-                other_players = [p for c, p in players.items() if c != conn and c not in eliminated]
-                if other_players:
-                    packet = '|'.join([f"{p['id']},{p['x']},{p['y']},{p['r']},{p['name']}"
-                                       for p in other_players]) + '|'
+                # Надсилаємо дані про ВСІХ інших гравців
+                all_other_players = []
+                for c, p in players.items():
+                    if c != conn and c not in eliminated:
+                        all_other_players.append(f"{p['id']},{p['x']},{p['y']},{p['r']},{p['name']}")
+
+                if all_other_players:
+                    packet = '|'.join(all_other_players) + '|'
                 else:
                     packet = '|'
+
                 conn.send(packet.encode())
             except BlockingIOError:
                 # Нормальна поведінка для неблокуючих сокетів
@@ -87,6 +95,7 @@ def handle_data():
             except Exception as e:
                 to_remove.append(conn)
 
+        # Видаляємо відключених гравців
         for conn in to_remove:
             if conn in players:
                 print(f"Removing player {players[conn]['id']}")
@@ -99,7 +108,8 @@ def handle_data():
 
 
 Thread(target=handle_data, daemon=True).start()
-print("SERVER running on localhost:8081...")
+print("SERVER running on 0.0.0.0:8081...")
+print("Use ngrok to expose this server: ngrok tcp 8081")
 
 while True:
     try:
@@ -112,6 +122,7 @@ while True:
         # Виправлено: надсилаємо початкові дані в правильному форматі
         initial_data = f"{id_counter},0,0,20"
         conn.send(initial_data.encode())
-        print(f"New player connected: ID {id_counter}, sent: {initial_data}")
+        print(f"New player connected from {addr}: ID {id_counter}")
+        print(f"Total players: {len(players)}")
     except Exception as e:
         pass

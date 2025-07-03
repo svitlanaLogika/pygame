@@ -46,20 +46,23 @@ def receive_data():
             data = sock.recv(4096).decode().strip()
             if data == "LOSE":
                 lose = True
+                print("You lost!")
             elif data and data != "":
-                # Перевіряємо, чи дані не є початковими даними гравця
+                # Перевіряємо, чи дані містять інформацію про гравців
                 if '|' in data:
                     parts = data.strip('|').split('|')
-                    all_players = []
+                    new_players = []
                     for p in parts:
                         if p and ',' in p:
                             player_parts = p.split(',')
                             if len(player_parts) == 5:
                                 try:
                                     player_data = list(map(int, player_parts[:4])) + [player_parts[4]]
-                                    all_players.append(player_data)
+                                    new_players.append(player_data)
                                 except ValueError:
                                     continue
+                    all_players = new_players
+                    print(f"Received {len(all_players)} other players")
         except BlockingIOError:
             # Нормальна поведінка для неблокуючих сокетів - просто чекаємо
             pass
