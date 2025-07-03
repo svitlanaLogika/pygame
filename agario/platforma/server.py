@@ -31,9 +31,17 @@ def handle_data():
                             players[conn] = {'id': pid, 'x': x, 'y': y, 'r': r, 'name': name}
                             player_data[conn] = players[conn]
                         except ValueError:
-                            print(f"Invalid data format: {data}")
                             continue
+            except BlockingIOError:
+                # Нормальна поведінка для неблокуючих сокетів - просто продовжуємо
+                continue
+            except ConnectionResetError:
+                # Клієнт відключився
+                to_remove.append(conn)
+                continue
             except Exception as e:
+                # Інші помилки - видаляємо підключення
+                to_remove.append(conn)
                 continue
 
         eliminated = []
@@ -70,8 +78,13 @@ def handle_data():
                 else:
                     packet = '|'
                 conn.send(packet.encode())
+            except BlockingIOError:
+                # Нормальна поведінка для неблокуючих сокетів
+                continue
+            except ConnectionResetError:
+                # Клієнт відключився
+                to_remove.append(conn)
             except Exception as e:
-                print(f"Error sending data to client: {e}")
                 to_remove.append(conn)
 
         for conn in to_remove:

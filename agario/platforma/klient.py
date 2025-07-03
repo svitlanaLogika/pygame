@@ -5,7 +5,6 @@ from threading import Thread
 from random import randint
 from menu import ConnectWindow
 
-
 win = ConnectWindow()
 win.mainloop()
 
@@ -61,10 +60,20 @@ def receive_data():
                                     all_players.append(player_data)
                                 except ValueError:
                                     continue
-                    print(f"Updated players: {all_players}")
-        except Exception as e:
-            print(f"Error receiving data: {e}")
+        except BlockingIOError:
+            # Нормальна поведінка для неблокуючих сокетів - просто чекаємо
             pass
+        except ConnectionResetError:
+            print("Connection lost to server")
+            running = False
+            break
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            pass
+
+        # Невелика пауза щоб не навантажувати CPU
+        import time
+        time.sleep(0.01)
 
 
 Thread(target=receive_data, daemon=True).start()
@@ -84,8 +93,8 @@ class Eat:
 
 
 eats = [Eat(randint(-2000, 2000), randint(-2000, 2000), 10,
-           (randint(0, 255), randint(0, 255), randint(0, 255)))
-       for _ in range(300)]
+            (randint(0, 255), randint(0, 255), randint(0, 255)))
+        for _ in range(300)]
 name_font = font.Font(None, 20)
 
 while running:
@@ -141,8 +150,14 @@ while running:
         try:
             msg = f"{my_id},{my_player[0]},{my_player[1]},{my_player[2]},{name}"
             sock.send(msg.encode())
+        except BlockingIOError:
+            # Нормальна поведінка для неблокуючих сокетів
+            pass
+        except ConnectionResetError:
+            print("Connection lost to server")
+            running = False
         except Exception as e:
-            print(f"Error sending data: {e}")
+            print(f"Unexpected error sending data: {e}")
             pass
 
 quit()
